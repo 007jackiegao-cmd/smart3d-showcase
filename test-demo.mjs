@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import Module from 'manifold-3d';
+import {buildPart,holes,summary,validate} from './geometry-demo.js';
+const engine=await Module();engine.setup();const M=engine.Manifold;
+const base={outer:120,thickness:12,bore:36,pitch:88,hole:8,count:6,material:'aluminium'};
+const area=(r,n)=>n*r*r*Math.sin(2*Math.PI/n)/2;
+let tests=0;const check=(name,fn)=>{fn();tests++;process.stdout.write(name+' passed\n');};
+for(const p of [base,{...base,outer:160,bore:50,pitch:120,count:10},{...base,thickness:5,count:3}])for(const kind of ['flange','plate'])check(kind+' dimensions '+p.outer+'/'+p.count,()=>{
+ const part=buildPart(M,p,kind);const expect=(kind==='flange'?area(p.outer/2,96):p.outer**2)-area(p.bore/2,96)-p.count*area(p.hole/2,48);
+ assert.ok(Math.abs(part.volume-expect*p.thickness)<1e-6*part.volume);
+ assert.equal(part.indices.length,part.triangles*3);assert.ok(part.positions.every(Number.isFinite));
+ const edges=new Map();for(let i=0;i<part.indices.length;i+=3){const tri=Array.from(part.indices.slice(i,i+3));for(let j=0;j<3;j++){const a=tri[j],b=tri[(j+1)%3],key=a<b?a+','+b:b+','+a;edges.set(key,(edges.get(key)||0)+1);}}assert.ok([...edges.values()].every(x=>x===2),'Every mesh edge must have two incident triangles');
+});
+check('invalid edge clearance rejected',()=>assert.throws(()=>validate({...base,pitch:116}),/edge/));
+check('overlapping bore rejected',()=>assert.throws(()=>validate({...base,bore:80}),/bore/));
+check('non-integer hole count rejected',()=>assert.throws(()=>validate({...base,count:3.5}),/whole/));
+check('all hole centres lie on bolt circle',()=>holes(base).forEach(([x,y])=>assert.ok(Math.abs(Math.hypot(x,y)-44)<1e-10)));
+check('BOM quantity and mass aggregation',()=>{const part=buildPart(M,base),rows=summary(part,base,true);assert.deepEqual(rows.map(r=>r.qty),[2,6,1]);for(const r of rows)assert.equal(r.totalMass,r.qty*r.unitMass);});
+check('material change affects mass, not mesh',()=>{const part=buildPart(M,base),a=summary(part,base)[0],b=summary(part,{...base,material:'steel'})[0];assert.ok(Math.abs(b.unitMass/a.unitMass-7.85/2.7)<1e-12);});
+console.log(tests+' public-demo checks passed.');

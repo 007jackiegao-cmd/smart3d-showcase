@@ -1,0 +1,17 @@
+{
+  "name": "smart3d-public-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build --base=./",
+    "test": "node test-demo.mjs"
+  },
+  "dependencies": {
+    "three": "0.172.0",
+    "manifold-3d": "3.1.0"
+  },
+  "devDependencies": {
+    "vite": "6.0.7"
+  }
+}
